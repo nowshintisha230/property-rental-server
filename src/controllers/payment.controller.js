@@ -7,7 +7,7 @@ const Property = require("../models/Property");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
 const catchAsync = require("../utils/catchAsync");
-const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
 
 // @route   POST /api/payments/create-intent
 // @access  Tenant
@@ -127,7 +127,7 @@ const confirmPayment = catchAsync(async (req, res, next) => {
 
   // Save transaction record
   const transaction = await Transaction.create({
-    transactionId: `TXN-${uuidv4().split("-")[0].toUpperCase()}`,
+    transactionId: `TXN-${crypto.randomUUID().split("-")[0].toUpperCase()}`,
     paymentId: payment._id,
     bookingId: booking._id,
     propertyId,
