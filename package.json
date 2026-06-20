@@ -20,7 +20,7 @@
     "firebase-admin": "^13.0.2",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.9.5",
+    "mongoose": "^8.24.0",
     "morgan": "^1.10.0",
     "stripe": "^17.5.0",
     "uuid": "^14.0.0",

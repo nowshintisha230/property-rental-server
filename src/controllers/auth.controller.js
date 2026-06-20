@@ -28,6 +28,8 @@ const sendTokenCookie = (res, token) => {
 
 // @route   POST /api/auth/register
 // @access  Public
+// NOTE: This route is used by the Owner registration form.
+// Every account created here is given the "owner" role by default.
 const register = catchAsync(async (req, res, next) => {
   const { name, email, password, photo } = req.body;
 
@@ -41,7 +43,7 @@ const register = catchAsync(async (req, res, next) => {
     email,
     password,
     photo: photo || undefined,
-    role: "tenant",
+    role: "owner", // ⬅️ changed from "tenant" — this form is for Owner sign-up
     isGoogleUser: false,
   });
 
@@ -95,6 +97,8 @@ const login = catchAsync(async (req, res, next) => {
 
 // @route   POST /api/auth/google
 // @access  Public
+// NOTE: Social login always assigns the "tenant" role by default,
+// as required — no role selection happens during Google sign-in.
 const googleLogin = catchAsync(async (req, res, next) => {
   const { idToken } = req.body;
 
@@ -114,7 +118,7 @@ const googleLogin = catchAsync(async (req, res, next) => {
       name: name || email.split("@")[0],
       email,
       photo: picture || undefined,
-      role: "tenant",
+      role: "tenant", // ⬅️ unchanged — Google sign-up is always Tenant
       isGoogleUser: true,
       isActive: true,
     });
