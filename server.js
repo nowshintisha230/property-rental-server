@@ -35,8 +35,8 @@ app.use(
   cors({
     origin: function (origin, callback) {
       const allowedOrigins = [
-        process.env.CLIENT_URL,
-        "http://localhost:3000",
+        process.env.CLIENT_URL,"https://property-rental-client-kappa.vercel.app/"
+        ,"http://localhost:3000",
       ];
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
