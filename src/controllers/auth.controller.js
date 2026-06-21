@@ -26,24 +26,35 @@ const sendTokenCookie = (res, token) => {
   res.cookie("token", token, cookieOptions);
 };
 
+// Roles a user is allowed to self-select on the register form.
+// "admin" is intentionally excluded — it must never be assignable
+// from a client-supplied field.
+const ALLOWED_SELF_SIGNUP_ROLES = ["tenant", "owner"];
+
 // @route   POST /api/auth/register
 // @access  Public
-// NOTE: This route is used by the Owner registration form.
-// Every account created here is given the "owner" role by default.
+// NOTE: This route now supports BOTH Tenant and Owner sign-up.
+// The client sends the role the user picked on the register form's
+// radio selector; we validate it against an allow-list before saving.
 const register = catchAsync(async (req, res, next) => {
-  const { name, email, password, photo } = req.body;
+  const { name, email, password, photo, role } = req.body;
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     return next(new ApiError(400, "An account with this email already exists"));
   }
 
+  // Validate the requested role — never trust the client blindly.
+  // Anything outside the allow-list (e.g. "admin") silently falls
+  // back to "tenant" instead of being honored.
+  const safeRole = ALLOWED_SELF_SIGNUP_ROLES.includes(role) ? role : "tenant";
+
   const user = await User.create({
     name,
     email,
     password,
     photo: photo || undefined,
-    role: "owner", // ⬅️ changed from "tenant" — this form is for Owner sign-up
+    role: safeRole, // ⬅️ now driven by the form's role selection
     isGoogleUser: false,
   });
 
