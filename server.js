@@ -31,14 +31,21 @@ connectDB();
 app.use(helmet());
 
 // CORS
+const normalizeOrigin = (url) => (url ? url.replace(/\/$/, "") : url);
+
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "https://property-rental-client-kappa.vercel.app",
+  "http://localhost:3000",
+]
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      const allowedOrigins = [
-        process.env.CLIENT_URL,"https://property-rental-client-kappa.vercel.app/"
-        ,"http://localhost:3000",
-      ];
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (Postman, curl, server-to-server, etc.)
+      if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -115,6 +122,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/feedback", feedbackRoutes);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
