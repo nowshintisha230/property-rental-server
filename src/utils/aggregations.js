@@ -102,6 +102,8 @@ const adminPlatformStats = () => [
 /**
  * Top 4 positive reviews for homepage
  * Positive = rating >= 4
+ * Uses preserveNullAndEmptyArrays so a missing/mismatched tenant or
+ * property lookup doesn't silently drop the whole review document.
  */
 const topPositiveReviews = () => [
   { $match: { rating: { $gte: 4 } } },
@@ -113,7 +115,7 @@ const topPositiveReviews = () => [
       as: "tenant",
     },
   },
-  { $unwind: "$tenant" },
+  { $unwind: { path: "$tenant", preserveNullAndEmptyArrays: true } },
   {
     $lookup: {
       from: "properties",
@@ -122,7 +124,7 @@ const topPositiveReviews = () => [
       as: "property",
     },
   },
-  { $unwind: "$property" },
+  { $unwind: { path: "$property", preserveNullAndEmptyArrays: true } },
   { $sort: { rating: -1, createdAt: -1 } },
   { $limit: 4 },
   {
@@ -130,6 +132,7 @@ const topPositiveReviews = () => [
       rating: 1,
       comment: 1,
       createdAt: 1,
+      reviewerSnapshot: 1,
       "tenant.name": 1,
       "tenant.photo": 1,
       "property.title": 1,
