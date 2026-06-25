@@ -5,6 +5,7 @@ const {
   createPaymentIntent,
   confirmPayment,
   stripeWebhook,
+  getPaymentByIntentId,
 } = require("../controllers/payment.controller");
 const { protect } = require("../middleware/auth.middleware");
 const { authorize } = require("../middleware/role.middleware");
@@ -20,5 +21,8 @@ router.post(
   createPaymentIntent
 );
 router.post("/confirm", protect, authorize("tenant"), confirmPayment);
+
+// Get payment by paymentIntentId
+router.get("/:paymentIntentId", protect, authorize("tenant"), getPaymentByIntentId);
 
 module.exports = router;

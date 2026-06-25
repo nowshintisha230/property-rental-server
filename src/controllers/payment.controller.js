@@ -9,8 +9,7 @@ const ApiResponse = require("../utils/ApiResponse");
 const catchAsync = require("../utils/catchAsync");
 const crypto = require("crypto");
 
-// @route   POST /api/payments/create-intent
-// @access  Tenant
+
 const createPaymentIntent = catchAsync(async (req, res, next) => {
   const { propertyId, amount } = req.body;
 
@@ -27,7 +26,6 @@ const createPaymentIntent = catchAsync(async (req, res, next) => {
     return next(new ApiError(400, "Property is not available for booking"));
   }
 
-  // Amount must be in cents for Stripe
   const amountInCents = Math.round(amount * 100);
 
   const paymentIntent = await stripe.paymentIntents.create({
@@ -54,8 +52,7 @@ const createPaymentIntent = catchAsync(async (req, res, next) => {
   );
 });
 
-// @route   POST /api/payments/confirm
-// @access  Tenant
+
 const confirmPayment = catchAsync(async (req, res, next) => {
   const {
     paymentIntentId,
@@ -66,7 +63,6 @@ const confirmPayment = catchAsync(async (req, res, next) => {
     amount,
   } = req.body;
 
-  // Verify payment with Stripe
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
   if (paymentIntent.status !== "succeeded") {
@@ -75,7 +71,6 @@ const confirmPayment = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Check if already processed
   const existingPayment = await Payment.findOne({
     stripePaymentIntentId: paymentIntentId,
   });
@@ -88,7 +83,6 @@ const confirmPayment = catchAsync(async (req, res, next) => {
     return next(new ApiError(404, "Property not found"));
   }
 
-  // Create booking
   const booking = await Booking.create({
     propertyId,
     tenantId: req.user._id,
@@ -112,7 +106,6 @@ const confirmPayment = catchAsync(async (req, res, next) => {
     },
   });
 
-  // Save payment record
   const payment = await Payment.create({
     bookingId: booking._id,
     tenantId: req.user._id,
@@ -125,7 +118,6 @@ const confirmPayment = catchAsync(async (req, res, next) => {
     stripeChargeId: paymentIntent.latest_charge || null,
   });
 
-  // Save transaction record
   const transaction = await Transaction.create({
     transactionId: `TXN-${crypto.randomUUID().split("-")[0].toUpperCase()}`,
     paymentId: payment._id,
@@ -155,6 +147,25 @@ const confirmPayment = catchAsync(async (req, res, next) => {
       201,
       { booking, payment, transaction },
       "Payment confirmed and booking created"
+    )
+  );
+});
+
+// @route   GET /api/payments/:paymentIntentId
+// @access  Tenant
+const getPaymentByIntentId = catchAsync(async (req, res, next) => {
+  const { paymentIntentId } = req.params;
+
+  const payment = await Payment.findOne({ stripePaymentIntentId: paymentIntentId });
+  if (!payment) {
+    return next(new ApiError(404, "Payment not found"));
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { amount: payment.amount, status: payment.status },
+      "Payment fetched"
     )
   );
 });
@@ -207,4 +218,9 @@ const stripeWebhook = catchAsync(async (req, res, next) => {
   res.json({ received: true });
 });
 
-module.exports = { createPaymentIntent, confirmPayment, stripeWebhook };
+module.exports = {
+  createPaymentIntent,
+  confirmPayment,
+  stripeWebhook,
+  getPaymentByIntentId,
+};
