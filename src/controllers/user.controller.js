@@ -1,5 +1,6 @@
 // src/controllers/user.controller.js
 const User = require("../models/User");
+const Property = require("../models/Property");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
 const catchAsync = require("../utils/catchAsync");
@@ -47,6 +48,84 @@ const getAllUsers = catchAsync(async (req, res) => {
   );
 });
 
+// @route   GET /api/users/top-owners
+// @access  Public
+// Returns only owners who have at least one APPROVED property.
+const getTopOwners = catchAsync(async (req, res) => {
+  const owners = await User.aggregate([
+    // 1. Only users with role "owner"
+    { $match: { role: "owner" } },
+
+    // 2. Join their properties via ownerId
+    {
+      $lookup: {
+        from: "properties",
+        localField: "_id",
+        foreignField: "ownerId",
+        as: "properties",
+      },
+    },
+
+    // 3. Keep only approved properties per owner
+    {
+      $addFields: {
+        approvedProperties: {
+          $filter: {
+            input: "$properties",
+            as: "p",
+            cond: { $eq: ["$$p.status", "approved"] },
+          },
+        },
+      },
+    },
+
+    // 4. Compute approved count + fallback rating + fallback location
+    {
+      $addFields: {
+        propertiesCount: { $size: "$approvedProperties" },
+        rating: { $ifNull: ["$averageRating", 4.5] },
+        location: {
+          $ifNull: [
+            "$location",
+            { $arrayElemAt: ["$approvedProperties.location", 0] },
+            "",
+          ],
+        },
+      },
+    },
+
+    // 5. Drop owners with zero approved properties
+    { $match: { propertiesCount: { $gt: 0 } } },
+
+    // 6. Best first
+    { $sort: { rating: -1, propertiesCount: -1 } },
+
+    // 7. Cap at 8 for the homepage grid
+    { $limit: 8 },
+
+    // 8. Shape output
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        photo: 1,
+        location: 1,
+        rating: 1,
+        propertiesCount: 1,
+      },
+    },
+  ]);
+
+  const shaped = owners.map((o) => ({
+    ...o,
+    badge: o.rating >= 4.8 ? "Top Owner" : "Verified",
+  }));
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { owners: shaped }, "Top owners fetched"));
+});
+
 // @route   GET /api/users/:id
 // @access  Admin
 const getUserById = catchAsync(async (req, res, next) => {
@@ -65,7 +144,9 @@ const changeUserRole = catchAsync(async (req, res, next) => {
   const { role } = req.body;
 
   if (!["tenant", "owner", "admin"].includes(role)) {
-    return next(new ApiError(400, "Invalid role. Must be tenant, owner, or admin"));
+    return next(
+      new ApiError(400, "Invalid role. Must be tenant, owner, or admin")
+    );
   }
 
   const user = await User.findById(req.params.id);
@@ -73,7 +154,6 @@ const changeUserRole = catchAsync(async (req, res, next) => {
     return next(new ApiError(404, "User not found"));
   }
 
-  // Prevent demoting yourself
   if (user._id.toString() === req.user._id.toString()) {
     return next(new ApiError(400, "You cannot change your own role"));
   }
@@ -100,9 +180,9 @@ const deleteUser = catchAsync(async (req, res, next) => {
 
   await User.findByIdAndDelete(req.params.id);
 
-  res.status(200).json(
-    new ApiResponse(200, null, "User deleted successfully")
-  );
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "User deleted successfully"));
 });
 
 // @route   PATCH /api/users/profile
@@ -130,6 +210,7 @@ const updateProfile = catchAsync(async (req, res, next) => {
 
 module.exports = {
   getAllUsers,
+  getTopOwners,
   getUserById,
   changeUserRole,
   deleteUser,
